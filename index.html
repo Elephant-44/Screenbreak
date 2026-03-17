@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScreenBreak — Stop Scrolling. Start Living.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --forest-dark: #0f2318;
+  --accent: #8ab84e;
+  --gold: #c8a84b;
+  --cream: #f2eedf;
+  --white: #ffffff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+body { font-family:'DM Sans',sans-serif; background:var(--forest-dark); color:var(--cream); overflow-x:hidden; cursor:none; }
+
+.cur { position:fixed; width:10px; height:10px; background:var(--accent); border-radius:50%; pointer-events:none; z-index:9999; transform:translate(-50%,-50%); mix-blend-mode:screen; }
+.cur-ring { position:fixed; width:32px; height:32px; border:1px solid rgba(138,184,78,.5); border-radius:50%; pointer-events:none; z-index:9998; transform:translate(-50%,-50%); }
+
+#tree-canvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none; }
+
+.sky { position:fixed; inset:0; z-index:0; background:linear-gradient(180deg,#8fbccc 0%,#b5d2e0 25%,#cce0d5 55%,#1e4a2a 100%); }
+
+.overlay { position:fixed; inset:0; z-index:2; pointer-events:none;
+  background: radial-gradient(ellipse 80% 55% at 50% 100%, rgba(15,35,24,.85) 0%, transparent 68%),
+              radial-gradient(ellipse 100% 25% at 50% 0%, rgba(15,35,24,.45) 0%, transparent 55%); }
+
+body::after { content:''; position:fixed; inset:0; z-index:3; pointer-events:none;
+  opacity:.2; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E"); }
+
+.page { position:relative; z-index:10; }
+
+/* HERO */
+.hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2rem; position:relative; }
+.hero-inner { background:rgba(10,30,18,.55); backdrop-filter:blur(12px); border:1px solid rgba(138,184,78,.15); border-radius:28px; padding:3rem 3.5rem; max-width:620px; }
+.eyebrow { font-family:'Space Mono',monospace; font-size:.68rem; letter-spacing:.28em; color:var(--accent); text-transform:uppercase; margin-bottom:2rem; opacity:0; animation:fu 1s .3s forwards; }
+.h1 { font-family:'Playfair Display',serif; font-size:clamp(3.6rem,11vw,9rem); font-weight:900; line-height:1; color:var(--white); opacity:0; animation:fu 1s .5s forwards; }
+.h1 em { font-style:italic; color:var(--accent); }
+.bar { width:80px; height:3px; background:linear-gradient(90deg,var(--accent),var(--gold)); margin:1.6rem auto; border-radius:2px; opacity:0; animation:fu 1s .7s forwards; }
+.sub { font-size:clamp(.95rem,2vw,1.25rem); font-weight:400; color:var(--white); max-width:520px; line-height:1.8; opacity:0; animation:fu 1s .9s forwards; text-shadow: 0 2px 12px rgba(0,0,0,.8); }
+.pills { display:flex; gap:.9rem; flex-wrap:wrap; justify-content:center; margin-top:2.2rem; opacity:0; animation:fu 1s 1.1s forwards; }
+.pill { padding:.45rem 1.1rem; border:1px solid rgba(138,184,78,.35); border-radius:100px; font-size:.82rem; color:var(--accent); background:rgba(138,184,78,.07); backdrop-filter:blur(8px); }
+.scroll-cue { position:absolute; bottom:2.5rem; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:.5rem; opacity:0; animation:fu 1s 1.6s forwards; }
+.scroll-cue span { font-family:'Space Mono',monospace; font-size:.6rem; letter-spacing:.2em; color:rgba(242,238,223,.4); text-transform:uppercase; }
+.sc-line { width:1px; height:48px; background:linear-gradient(180deg,rgba(138,184,78,.8),transparent); animation:pulse 2s ease-in-out infinite; }
+
+/* SECTIONS */
+.s { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:7rem 2rem; }
+.si { max-width:940px; width:100%; }
+.s-eye { font-family:'Space Mono',monospace; font-size:.63rem; letter-spacing:.28em; color:var(--accent); text-transform:uppercase; margin-bottom:.9rem; opacity:0; transform:translateY(22px); transition:opacity .8s,transform .8s; }
+.s-h2 { font-family:'Playfair Display',serif; font-size:clamp(2.2rem,5vw,3.8rem); font-weight:700; line-height:1.15; color:var(--white); margin-bottom:1.4rem; opacity:0; transform:translateY(22px); transition:opacity .8s .1s,transform .8s .1s; }
+.s-h2 em { font-style:italic; color:var(--accent); }
+.s-p { font-size:1.05rem; line-height:1.85; color:rgba(242,238,223,.92); opacity:0; transform:translateY(22px); transition:opacity .8s .2s,transform .8s .2s; }
+.si.vis .s-eye,.si.vis .s-h2,.si.vis .s-p { opacity:1; transform:none; }
+
+.panel { background:rgba(10,30,18,.45); border:1px solid rgba(138,184,78,.3); border-radius:24px; padding:2.8rem; backdrop-filter:blur(20px); }
+
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1.4rem; margin-top:2.8rem; opacity:0; transform:translateY(22px); transition:opacity .8s .3s,transform .8s .3s; }
+.si.vis .stats { opacity:1; transform:none; }
+.stat { background:rgba(10,30,18,.45); border:1px solid rgba(138,184,78,.35); border-radius:16px; padding:1.4rem; text-align:center; backdrop-filter:blur(10px); transition:transform .3s,border-color .3s; }
+.stat:hover { transform:translateY(-5px); border-color:rgba(138,184,78,.6); }
+.stat-n { font-family:'Playfair Display',serif; font-size:2.8rem; font-weight:900; color:var(--accent); line-height:1; }
+.stat-l { font-size:.78rem; color:rgba(242,238,223,.8); margin-top:.35rem; line-height:1.4; }
+
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1.4rem; margin-top:2.8rem; opacity:0; transform:translateY(22px); transition:opacity .8s .3s,transform .8s .3s; }
+.si.vis .cards { opacity:1; transform:none; }
+.card { background:rgba(10,30,18,.45); border:1px solid rgba(138,184,78,.25); border-radius:20px; padding:1.7rem; backdrop-filter:blur(16px); position:relative; overflow:hidden; transition:transform .3s,background .3s; }
+.card::before { content:''; position:absolute; top:0;left:0;right:0; height:3px; background:linear-gradient(90deg,var(--accent),var(--gold)); transform:scaleX(0); transform-origin:left; transition:transform .4s; }
+.card:hover { transform:translateY(-6px); background:rgba(10,30,18,.92); }
+.card:hover::before { transform:scaleX(1); }
+.card-ico { font-size:1.9rem; margin-bottom:.9rem; }
+.card-t { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:700; color:var(--white); margin-bottom:.5rem; }
+.card-tx { font-size:.88rem; color:rgba(242,238,223,.85); line-height:1.7; }
+
+.rlist { display:flex; flex-direction:column; gap:1rem; margin-top:2.4rem; opacity:0; transition:opacity .8s .3s; }
+.si.vis .rlist { opacity:1; }
+.ritem { display:flex; align-items:center; gap:1.2rem; padding:1rem 1.4rem; background:rgba(10,30,18,.45); border-left:3px solid var(--accent); border-radius:0 12px 12px 0; backdrop-filter:blur(12px); transition:transform .3s,background .3s; }
+.ritem:hover { transform:translateX(8px); background:rgba(10,30,18,.95); }
+.rico { font-size:1.5rem; flex-shrink:0; }
+.rtx { font-size:.92rem; color:rgba(242,238,223,.92); }
+
+.egrid { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; margin-top:2.4rem; opacity:0; transition:opacity .8s .3s; }
+@media(max-width:580px){.egrid{grid-template-columns:1fr;}}
+.si.vis .egrid { opacity:1; }
+.eitem { background:rgba(10,30,18,.45); border:1px solid rgba(138,184,78,.25); border-radius:16px; padding:1.3rem; backdrop-filter:blur(14px); }
+.elabel { font-family:'Space Mono',monospace; font-size:.62rem; letter-spacing:.2em; color:var(--accent); text-transform:uppercase; margin-bottom:.6rem; }
+.epts { list-style:none; }
+.epts li { font-size:.83rem; color:rgba(242,238,223,.88); padding:.22rem 0 .22rem 1rem; position:relative; line-height:1.5; }
+.epts li::before { content:'›'; position:absolute; left:0; color:var(--accent); font-weight:700; }
+
+.cta { min-height:80vh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; }
+.cta-in { max-width:640px; }
+.cta-h { font-family:'Playfair Display',serif; font-size:clamp(2.6rem,7vw,5rem); font-weight:900; color:var(--white); line-height:1.1; margin-bottom:1.4rem; opacity:0; transform:translateY(22px); transition:opacity .8s,transform .8s; }
+.cta-in.vis .cta-h { opacity:1; transform:none; }
+.cta-sub { font-size:1rem; color:rgba(242,238,223,.6); margin-bottom:2.8rem; opacity:0; transition:opacity .8s .15s; }
+.cta-in.vis .cta-sub { opacity:1; }
+.bigs { display:flex; justify-content:center; gap:3rem; flex-wrap:wrap; margin-bottom:2.8rem; opacity:0; transition:opacity .8s .25s; }
+.cta-in.vis .bigs { opacity:1; }
+.bs-n { font-family:'Playfair Display',serif; font-size:4rem; font-weight:900; color:var(--accent); line-height:1; }
+.bs-l { font-size:.75rem; color:rgba(242,238,223,.45); margin-top:.3rem; }
+.vdiv { width:1px; height:56px; background:rgba(138,184,78,.3); align-self:center; }
+.hfancy { border:none; height:1px; background:linear-gradient(90deg,transparent,rgba(138,184,78,.4),transparent); margin:2rem 0; }
+
+footer { padding:2.5rem 2rem; text-align:center; border-top:1px solid rgba(138,184,78,.12); position:relative; z-index:10; }
+footer p { font-family:'Space Mono',monospace; font-size:.62rem; letter-spacing:.2em; color:rgba(242,238,223,.28); text-transform:uppercase; }
+
+@keyframes fu { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:none} }
+@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+</style>
+</head>
+<body>
+
+<div class="cur" id="cur"></div>
+<div class="cur-ring" id="curRing"></div>
+<div class="sky" id="sky"></div>
+<canvas id="tree-canvas"></canvas>
+<div class="overlay"></div>
+
+<div class="page">
+  <section class="hero">
+    <div class="hero-inner">
+    <div class="eyebrow">🌳 ScreenBreak — Sobriété numérique</div>
+    <h1 class="h1">Stop Scrolling.<br><em>Start Living.</em></h1>
+    <div class="bar"></div>
+    <p class="sub">ScreenBreak est une application de sobriété numérique accessible à tous. Elle récompense chaque période sans écran par des points qui font pousser un arbre virtuel, débloquant des expériences 100% hors écran. Particulièrement pensée pour les jeunes, elle vise à ancrer des habitudes numériques équilibrées durablement.</p>
+    <div class="pills">
+      <span class="pill">⚡ 1 Défi</span>
+      <span class="pill">🚫 0 Écran</span>
+      <span class="pill">✓ 100% Fun</span>
+    </div>
+    </div>
+    <div class="scroll-cue"><span>Scroll pour explorer</span><div class="sc-line"></div></div>
+  </section>
+
+  <section class="s"><div class="si" data-reveal><div class="panel">
+    <div class="s-eye">01 — Le problème</div>
+    <h2 class="s-h2">Un enjeu de <em>santé publique</em></h2>
+    <p class="s-p">En France, <strong style="color:var(--accent)">34% des 15–74 ans</strong> déclarent subir au moins un effet néfaste lié aux écrans. Chez les moins de 20 ans, ce chiffre monte à <strong style="color:var(--accent)">57%</strong>. Troubles du sommeil, anxiété, addiction dopaminergique, isolement social — les conséquences sont profondes et scientifiquement documentées.</p>
+    <div class="stats">
+      <div class="stat"><div class="stat-n">57%</div><div class="stat-l">des moins de 20 ans impactés</div></div>
+      <div class="stat"><div class="stat-n">2h33</div><div class="stat-l">d'écran par jour dès 9–11 ans</div></div>
+      <div class="stat"><div class="stat-n">34%</div><div class="stat-l">des 15–74 ans affectés en France</div></div>
+    </div>
+  </div></div></section>
+
+  <section class="s"><div class="si" data-reveal>
+    <div class="s-eye">02 — Population cible</div>
+    <h2 class="s-h2">Pourquoi les <em>jeunes</em> ?</h2>
+    <p class="s-p">Le cerveau adolescent est en plein développement. L'impulsivité, les décisions et les émotions sont encore en construction — ce qui le rend particulièrement vulnérable à la surstimulation des écrans.</p>
+    <div class="cards">
+      <div class="card"><div class="card-ico">🧠</div><div class="card-t">Cerveau en développement</div><div class="card-tx">Les écrans surstimulent le circuit de récompense, créant des risques d'addiction et de manque de concentration.</div></div>
+      <div class="card"><div class="card-ico">😴</div><div class="card-t">Impact sur le sommeil</div><div class="card-tx">La lumière bleue retarde l'endormissement, réduit la qualité du sommeil et génère fatigue et difficultés scolaires.</div></div>
+      <div class="card"><div class="card-ico">📱</div><div class="card-t">Réseaux sociaux</div><div class="card-tx">Comparaison sociale, baisse de l'estime de soi, anxiété et risques de cyberharcèlement touchent massivement les ados.</div></div>
+      <div class="card"><div class="card-ico">🎯</div><div class="card-t">Prévention précoce</div><div class="card-tx">Agir tôt permet d'ancrer des habitudes numériques équilibrées et un esprit critique face aux contenus en ligne.</div></div>
+    </div>
+  </div></section>
+
+  <section class="s"><div class="si" data-reveal>
+    <div class="s-eye">03 — L'action</div>
+    <h2 class="s-h2"><em>ScreenBreak</em> — Comment ça marche ?</h2>
+    <p class="s-p">ScreenBreak comptabilise vos périodes sans écran. Plus votre téléphone reste inutilisé, plus vous cumulez des points — et votre arbre virtuel grandit. Il pousse chaque jour de sobriété validé, et ralentit si le téléphone est trop utilisé.</p>
+    <div class="cards">
+      <div class="card"><div class="card-ico">⏱️</div><div class="card-t">Suivi automatique</div><div class="card-tx">L'app enregistre les périodes sans écran en arrière-plan, synchronisée avec les données natives du smartphone.</div></div>
+      <div class="card"><div class="card-ico">🌳</div><div class="card-t">Arbre virtuel</div><div class="card-tx">Votre arbre pousse chaque jour sobre et ralentit si vous utilisez trop votre téléphone — un reflet vivant de vos efforts.</div></div>
+      <div class="card"><div class="card-ico">🏆</div><div class="card-t">Défis & Points</div><div class="card-tx">Paliers, défis hebdomadaires et défis-surprises pour garder la motivation et créer une dynamique de groupe.</div></div>
+      <div class="card"><div class="card-ico">🔒</div><div class="card-t">Mode blocage</div><div class="card-tx">Bloquez les notifications et les ouvertures d'apps pour limiter les tentations et aller au bout de vos périodes sobres.</div></div>
+    </div>
+  </div></section>
+
+  <section class="s"><div class="si" data-reveal>
+    <div class="s-eye">04 — Récompenses</div>
+    <h2 class="s-h2">100% <em>hors écran</em></h2>
+    <p class="s-p">Toutes les récompenses ScreenBreak vous poussent vers le monde réel. Partenariats avec des acteurs culturels et sportifs locaux.</p>
+    <div class="rlist">
+      <div class="ritem"><div class="rico">🎬</div><div class="rtx"><strong>Cinéma & Musées</strong> — Accès à des événements culturels et expositions avec partenaires locaux</div></div>
+      <div class="ritem"><div class="rico">🧗</div><div class="rtx"><strong>Sport & Loisirs</strong> — Piscine, escalade, salle de sport, activités en plein air</div></div>
+      <div class="ritem"><div class="rico">📚</div><div class="rtx"><strong>Culture locale</strong> — Réductions chez librairies, disquaires, papeteries</div></div>
+      <div class="ritem"><div class="rico">📸</div><div class="rtx"><strong>Preuve par photo</strong> — Chaque activité réalisée est validée par une photo envoyée dans l'app, pour débloquer les récompenses et limiter la triche</div></div>
+      <div class="ritem"><div class="rico">🎁</div><div class="rtx"><strong>Lots surprises</strong> — Défis surprises avec points multipliés et récompenses spéciales</div></div>
+    </div>
+  </div></section>
+
+  <section class="s"><div class="si" data-reveal>
+    <div class="s-eye">05 — Évaluation</div>
+    <h2 class="s-h2">Mesurer l'<em>impact</em></h2>
+    <p class="s-p">ScreenBreak s'évalue sur 4 axes complémentaires, de J0 à J90, pour mesurer l'efficacité réelle de l'action.</p>
+    <div class="egrid">
+      <div class="eitem"><div class="elabel">📊 Data Logging</div><ul class="epts"><li>Périodes sans écran suivies en arrière-plan</li><li>Points cumulés par palier</li><li>Taux d'activation du mode blocage</li></ul></div>
+      <div class="eitem"><div class="elabel">💚 Indicateurs de santé</div><ul class="epts"><li>Évolution du temps d'écran avant/après</li><li>Score bien-être à J0, J15, J30, J90</li><li>Réduction des envies compulsives</li></ul></div>
+      <div class="eitem"><div class="elabel">👥 Croissance</div><ul class="epts"><li>Utilisateurs actifs par jour (DAU) et par mois (MAU)</li><li>Pourcentage actifs à J7, J30 et J90</li><li>Récompenses échangées</li></ul></div>
+      <div class="eitem"><div class="elabel">🔬 Méthode</div><ul class="epts"><li>Questionnaires J0, J15, J30, J90</li><li>Sobriété validée par capture d'écran du temps d'écran natif</li><li>Activités prouvées par photo envoyée dans l'app</li></ul></div>
+    </div>
+  </div></section>
+
+  <section class="cta"><div class="cta-in" data-reveal-cta>
+    <h2 class="cta-h">Prêt à <em style="color:var(--accent)">vivre</em> ?</h2>
+    <p class="cta-sub">Pose ton téléphone. Regarde ton arbre pousser.</p>
+    <div class="bigs">
+      <div><div class="bs-n">1</div><div class="bs-l">Défi quotidien</div></div>
+      <div class="vdiv"></div>
+      <div><div class="bs-n">0</div><div class="bs-l">Écran requis</div></div>
+      <div class="vdiv"></div>
+      <div><div class="bs-n">∞</div><div class="bs-l">Possibilités</div></div>
+    </div>
+    <hr class="hfancy">
+    <p style="font-family:'Space Mono',monospace;font-size:.68rem;letter-spacing:.2em;color:rgba(242,238,223,.35);text-transform:uppercase;">Projet santé publique — Gestion des Écrans — ScreenBreak 2026</p>
+  </div></section>
+</div>
+
+<footer><p>ScreenBreak © 2026 — Stop Scrolling. Start Living.</p></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── CURSOR ──
+const cur=document.getElementById('cur'),ring=document.getElementById('curRing');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;});
+(function ac(){cur.style.left=mx+'px';cur.style.top=my+'px';rx+=(mx-rx)*.12;ry+=(my-ry)*.12;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(ac);})();
+
+// ── THREE SETUP ──
+const canvas=document.getElementById('tree-canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.3;
+
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0x0f2318,0.032);
+
+const camera=new THREE.PerspectiveCamera(42,window.innerWidth/window.innerHeight,0.1,200);
+camera.position.set(0,5,20);
+camera.lookAt(0,7,0);
+
+// Lighting
+const amb=new THREE.AmbientLight(0x88bb88,0.7); scene.add(amb);
+const sun=new THREE.DirectionalLight(0xfff5cc,2.5);
+sun.position.set(12,22,8); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-25; sun.shadow.camera.right=25;
+sun.shadow.camera.top=25; sun.shadow.camera.bottom=-25;
+sun.shadow.camera.near=0.5; sun.shadow.camera.far=80;
+scene.add(sun);
+const fill=new THREE.DirectionalLight(0x4a8f60,0.9); fill.position.set(-10,12,-5); scene.add(fill);
+const rim=new THREE.DirectionalLight(0xc8e882,0.5); rim.position.set(0,4,-18); scene.add(rim);
+
+// Ground
+const gGeo=new THREE.CircleGeometry(25,64);
+const gMat=new THREE.MeshLambertMaterial({color:0x1a3a22});
+const ground=new THREE.Mesh(gGeo,gMat); ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+
+// Grass tufts
+for(let i=0;i<100;i++){
+  const geo=new THREE.ConeGeometry(.06+Math.random()*.1,.2+Math.random()*.35,4);
+  const mat=new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL(.32,.58,.15+Math.random()*.1)});
+  const m=new THREE.Mesh(geo,mat);
+  const a=Math.random()*Math.PI*2, d=1.8+Math.random()*10;
+  m.position.set(Math.cos(a)*d,0,Math.sin(a)*d);
+  m.rotation.x=Math.PI; scene.add(m);
+}
+
+// ── PROCEDURAL OAK TREE ──
+const treeGroup=new THREE.Group(); scene.add(treeGroup);
+
+const barkMat=new THREE.MeshLambertMaterial({color:0x3a2510});
+const barkLightMat=new THREE.MeshLambertMaterial({color:0x4d3318});
+
+function mkLeafMat(){
+  const h=.29+Math.random()*.08, l=.22+Math.random()*.12;
+  return new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL(h,.65,l),transparent:true,opacity:.9,side:THREE.DoubleSide});
+}
+
+const allSegs=[];
+
+function branch(parent,origin,dir,len,rad,depth,maxD){
+  if(depth>maxD||len<.06) return;
+  const end=origin.clone().add(dir.clone().multiplyScalar(len));
+
+  // Branch cylinder
+  const segs=Math.max(3,8-depth);
+  const geo=new THREE.CylinderGeometry(rad*.65,rad,len,segs,1);
+  // Slightly taper and bend via morph — just use basic cylinder
+  const mat=(depth<2?barkMat:barkLightMat).clone();
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.castShadow=true; mesh.receiveShadow=true;
+  // Orient cylinder from origin to end
+  const mid=origin.clone().add(end).multiplyScalar(.5);
+  mesh.position.copy(mid);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());
+  mesh.scale.set(0,0,0);
+  parent.add(mesh);
+  allSegs.push({mesh,depth});
+
+  // Leaf clusters at branch tips
+  if(depth>=maxD-1){
+    const nc=6+Math.floor(Math.random()*7);
+    for(let i=0;i<nc;i++){
+      const sz=.6+Math.random()*1.1;
+      // Icosahedron deformed for organic oak canopy
+      const lGeo=new THREE.IcosahedronGeometry(sz,2);
+      const pos=lGeo.attributes.position;
+      for(let v=0;v<pos.count;v++){
+        pos.setXYZ(v,
+          pos.getX(v)*(.8+Math.random()*.4),
+          pos.getY(v)*(.7+Math.random()*.5),
+          pos.getZ(v)*(.8+Math.random()*.4)
+        );
+      }
+      lGeo.computeVertexNormals();
+      const lMesh=new THREE.Mesh(lGeo,mkLeafMat());
+      lMesh.castShadow=true;
+      lMesh.position.copy(end).add(new THREE.Vector3(
+        (Math.random()-.5)*sz*2,
+        Math.random()*sz,
+        (Math.random()-.5)*sz*2
+      ));
+      lMesh.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI);
+      lMesh.scale.set(0,0,0);
+      parent.add(lMesh);
+      allSegs.push({mesh:lMesh,depth:maxD+2});
+    }
+  }
+
+  // Children
+  const nChildren=depth===0?4:(depth<3?3:2);
+  for(let i=0;i<nChildren;i++){
+    const spread=.3+Math.random()*.4;
+    const twist=(i/nChildren)*Math.PI*2+Math.random()*.6;
+    // Find a perpendicular to dir
+    let perp=new THREE.Vector3(1,0,0);
+    if(Math.abs(dir.dot(perp))>.9) perp.set(0,0,1);
+    const ax=dir.clone().cross(perp).normalize();
+    const childDir=dir.clone().applyAxisAngle(ax,spread).applyAxisAngle(dir,twist).normalize();
+    // Oak branches tend to spread wide then curve up slightly
+    childDir.y+=.1+Math.random()*.2; childDir.normalize();
+    branch(parent,end,childDir,len*(.58+Math.random()*.1),rad*(.58+Math.random()*.07),depth+1,maxD);
+  }
+}
+
+// Build oak — start with thick trunk
+branch(treeGroup,new THREE.Vector3(0,0,0),new THREE.Vector3(0,1,0),5,0.38,0,5);
+
+// Sort segments by depth for staged reveal
+allSegs.sort((a,b)=>a.depth-b.depth);
+const maxD=Math.max(...allSegs.map(s=>s.depth));
+
+// Group by depth
+const byDepth={};
+allSegs.forEach(s=>{
+  if(!byDepth[s.depth]) byDepth[s.depth]=[];
+  byDepth[s.depth].push(s.mesh);
+});
+const depthKeys=Object.keys(byDepth).map(Number).sort((a,b)=>a-b);
+
+let lastProg=-1;
+function easeOut(t){return 1-Math.pow(1-t,3);}
+
+function updateGrowth(p){
+  if(Math.abs(p-lastProg)<.004) return;
+  lastProg=p;
+  depthKeys.forEach(d=>{
+    const t=(d/(maxD+1));
+    const lp=Math.max(0,Math.min(1,(p-t)/(1/(maxD+2))));
+    const s=easeOut(lp);
+    byDepth[d].forEach(m=>m.scale.set(s,s,s));
+  });
+}
+
+// ── SCROLL ──
+let scrollP=0, currentGrowth=0;
+window.addEventListener('scroll',()=>{
+  const maxS=document.body.scrollHeight-window.innerHeight;
+  scrollP=Math.min(window.scrollY/maxS,1);
+  document.getElementById('sky').style.transform=`translateY(${window.scrollY*.1}px)`;
+},{passive:true});
+
+// ── REVEAL ──
+document.querySelectorAll('[data-reveal]').forEach(el=>{
+  new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');});},{threshold:.15}).observe(el);
+});
+const ctaEl=document.querySelector('[data-reveal-cta]');
+if(ctaEl) new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');});},{threshold:.2}).observe(ctaEl);
+
+// ── ANIMATE ──
+let t=0;
+function animate(){
+  requestAnimationFrame(animate);
+  t+=.007;
+
+  // Smooth growth
+  currentGrowth+=(scrollP-currentGrowth)*.035;
+  updateGrowth(currentGrowth);
+
+  // Slow majestic rotation + wind sway
+  treeGroup.rotation.y=t*.22;
+  treeGroup.rotation.z=Math.sin(t*.35)*.013;
+  treeGroup.rotation.x=Math.cos(t*.28)*.008;
+
+  // Leaf shimmer
+  if(byDepth[maxD]){
+    byDepth[maxD].forEach((m,i)=>{
+      if(m.material&&m.material.opacity!==undefined){
+        m.material.opacity=.82+Math.sin(t*1.1+i*.5)*.1;
+      }
+    });
+  }
+
+  // Animate sun arc slowly
+  sun.position.x=12+Math.sin(t*.08)*4;
+  sun.position.z=8+Math.cos(t*.08)*4;
+
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>
